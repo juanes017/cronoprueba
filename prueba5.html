@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cronoescalada Ciclística</title>
+  <style>
+    body {
+      font-family: 'Roboto', sans-serif;
+      background: linear-gradient(to bottom, #1e3c72, #2a5298);
+      color: #fff;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    h1 {
+      text-align: center;
+      margin: 20px 0;
+      font-size: 2rem;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+    }
+
+    .organizador {
+      font-size: 1rem;
+      margin-bottom: 20px;
+      text-align: center;
+      color: #f0f0f0;
+    }
+
+    .formulario, .botones-extra {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: center;
+      margin: 20px 0;
+      width: 90%;
+    }
+
+    input, button {
+      padding: 10px;
+      font-size: 1rem;
+      border: none;
+      border-radius: 5px;
+      width: 100%;
+      max-width: 300px;
+    }
+
+    button {
+      background-color: #4caf50;
+      color: white;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+
+    button:hover {
+      background-color: #45a049;
+    }
+
+    table {
+      width: 90%;
+      border-collapse: collapse;
+      margin-top: 20px;
+      background-color: #fff;
+      color: #333;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    th, td {
+      border: 1px solid #ccc;
+      padding: 10px;
+      text-align: center;
+    }
+
+    th {
+      background-color: #333;
+      color: white;
+    }
+
+    .btn {
+      padding: 5px;
+      margin: 2px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .arranque {
+      background-color: #27ae60;
+      color: white;
+    }
+
+    .llegada {
+      background-color: #2980b9;
+      color: white;
+    }
+
+    .borrar {
+      background-color: #e74c3c;
+      color: white;
+    }
+
+    .footer {
+      text-align: center;
+      margin-top: 30px;
+      color: #f0f0f0;
+      font-size: 0.9rem;
+    }
+
+    @media (max-width: 768px) {
+      h1 {
+        font-size: 1.5rem;
+      }
+
+      .formulario, .botones-extra {
+        flex-direction: column;
+        align-items: center;
+      }
+
+      table {
+        font-size: 0.9rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <h1>Cronoescalada Ciclística</h1>
+  <div class="organizador">Organizado por: ALCALDÍA DE CAMPOHERMOSO</div>
+  <div class="formulario">
+    <input type="number" id="numero" placeholder="Número del ciclista" />
+    <input type="text" id="nombre" placeholder="Nombre del ciclista" />
+    <button onclick="agregarParticipante()">Agregar</button>
+  </div>
+  <div class="botones-extra">
+    <button onclick="exportarCSV()">Exportar CSV (Excel)</button>
+    <button onclick="reiniciarTodo()">Reiniciar todo</button>
+    <button onclick="compartirWhatsApp()">Compartir por WhatsApp</button>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Número</th>
+        <th>Nombre</th>
+        <th>Salida</th>
+        <th>Llegada</th>
+        <th>Tiempo</th>
+        <th>Acciones</th>
+      </tr>
+    </thead>
+    <tbody id="tabla-participantes"></tbody>
+  </table>
+  <div class="footer">© 2025 Cronoescalada - Sistema personalizado</div>
+  <script>
+    let contador = 0;
+    const cronometros = {};
+    const numerosRegistrados = new Set(); // Para evitar números duplicados
+
+    function getHoraActual() {
+      return new Date().toLocaleTimeString('es-CO', { hour12: false });
+    }
+
+    function agregarParticipante(numero = '', nombre = '', salida = '', llegada = '', tiempo = '') {
+      const numeroInput = document.getElementById('numero');
+      const nombreInput = document.getElementById('nombre');
+
+      const numeroValue = numeroInput.value.trim();
+      const nombreValue = nombreInput.value.trim();
+
+      if (!numeroValue || !nombreValue) {
+        alert('Por favor, ingrese un número y un nombre.');
+        return;
+      }
+
+      if (numerosRegistrados.has(numeroValue)) {
+        alert('El número ya existe. Por favor, ingrese un número diferente.');
+        return;
+      }
+
+      numerosRegistrados.add(numeroValue);
+      contador++;
+      const tabla = document.getElementById('tabla-participantes');
+      const fila = document.createElement('tr');
+      fila.innerHTML = `
+        <td>${contador}</td>
+        <td>${numeroValue}</td>
+        <td>${nombreValue}</td>
+        <td class="salida">${salida}</td>
+        <td class="llegada">${llegada}</td>
+        <td class="tiempo" data-contador="${contador}">${tiempo || '00:00:00'}</td>
+        <td>
+          <button class="btn arranque" onclick="registrarSalida(this)">Arranque</button>
+          <button class="btn llegada" onclick="registrarLlegada(this)">Llegada</button>
+          <button class="btn borrar" onclick="borrarFila(this)">Borrar</button>
+        </td>`;
+      tabla.appendChild(fila);
+
+      // Limpiar los campos después de agregar el participante
+      numeroInput.value = '';
+      nombreInput.value = '';
+
+      if (salida && !llegada) {
+        const horaInicio = new Date(`1970-01-01T${salida}`);
+        const tiempoCelda = fila.querySelector('.tiempo');
+        const id = tiempoCelda.dataset.contador;
+        let segundos = Math.floor((new Date() - horaInicio) / 1000);
+        cronometros[id] = setInterval(() => {
+          segundos++;
+          const h = String(Math.floor(segundos / 3600)).padStart(2, '0');
+          const m = String(Math.floor((segundos % 3600) / 60)).padStart(2, '0');
+          const s = String(segundos % 60).padStart(2, '0');
+          tiempoCelda.textContent = `${h}:${m}:${s}`;
+        }, 1000);
+      }
+    }
+
+    function registrarSalida(btn) {
+      const fila = btn.closest('tr');
+      const salida = fila.querySelector('.salida');
+      const tiempo = fila.querySelector('.tiempo');
+      const id = tiempo.dataset.contador;
+      if (salida.textContent) return;
+      const horaInicio = new Date();
+      salida.textContent = horaInicio.toLocaleTimeString('es-CO', { hour12: false });
+      let segundos = 0;
+      cronometros[id] = setInterval(() => {
+        segundos++;
+        const h = String(Math.floor(segundos / 3600)).padStart(2, '0');
+        const m = String(Math.floor((segundos % 3600) / 60)).padStart(2, '0');
+        const s = String(segundos % 60).padStart(2, '0');
+        tiempo.textContent = `${h}:${m}:${s}`;
+      }, 1000);
+    }
+
+    function registrarLlegada(btn) {
+      const fila = btn.closest('tr');
+      const salida = fila.querySelector('.salida');
+      const llegada = fila.querySelector('.llegada');
+      const tiempo = fila.querySelector('.tiempo');
+      const id = tiempo.dataset.contador;
+      if (salida.textContent && !llegada.textContent) {
+        llegada.textContent = getHoraActual();
+        clearInterval(cronometros[id]);
+        delete cronometros[id];
+      }
+    }
+
+    function borrarFila(btn) {
+      const fila = btn.closest('tr');
+      const tiempo = fila.querySelector('.tiempo');
+      const id = tiempo.dataset.contador;
+      const numero = fila.querySelector('td:nth-child(2)').textContent.trim();
+
+      if (cronometros[id]) clearInterval(cronometros[id]);
+      numerosRegistrados.delete(numero); // Eliminar el número del conjunto
+      fila.remove();
+    }
+
+    function exportarCSV() {
+      const filas = document.querySelectorAll('tbody tr');
+      let csv = 'Numero,Nombre,Salida,Llegada,Tiempo\n';
+      filas.forEach(fila => {
+        const datos = Array.from(fila.querySelectorAll('td')).slice(1, 6).map(td => td.textContent.trim());
+        csv += datos.join(',') + '\n';
+      });
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'cronoescalada.csv';
+      a.click();
+    }
+
+    function reiniciarTodo() {
+      Object.values(cronometros).forEach(clearInterval);
+      Object.keys(cronometros).forEach(k => delete cronometros[k]);
+      document.getElementById('tabla-participantes').innerHTML = '';
+      numerosRegistrados.clear(); // Limpiar el conjunto de números registrados
+      contador = 0;
+    }
+
+    function compartirWhatsApp() {
+      const filas = document.querySelectorAll('tbody tr');
+      if (filas.length === 0) {
+        alert('No hay datos para compartir.');
+        return;
+      }
+
+      let texto = 'Datos de Cronoescalada:\n';
+      filas.forEach(fila => {
+        const datos = Array.from(fila.querySelectorAll('td')).slice(1, 6).map(td => td.textContent.trim());
+        texto += `Número: ${datos[0]}, Nombre: ${datos[1]}, Salida: ${datos[2]}, Llegada: ${datos[3]}, Tiempo: ${datos[4]}\n`;
+      });
+
+      const url = `https://wa.me/?text=${encodeURIComponent(texto)}`;
+      window.open(url, '_blank');
+    }
+
+    document.getElementById('nombre').addEventListener('input', function () {
+      this.value = this.value.toUpperCase();
+    });
+
+    // Cargar los datos al cargar la página
+    window.addEventListener('load', () => {
+      cargarDatos();
+    });
+  </script>
+</body>
+</html>
